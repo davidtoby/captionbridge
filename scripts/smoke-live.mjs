@@ -1,0 +1,12 @@
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const root=new URL('../',import.meta.url);
+const {serverUrl,clientToken}=JSON.parse(await readFile(new URL('.local/connection.json',root),'utf8'));
+const health=await fetch(serverUrl+'/api/health').then(r=>r.json());
+assert.equal(health.ok,true);assert.equal(health.data.configured,true);
+const start=Date.now();
+const request={sourceLanguage:'en',targetLanguage:'zh-Hans',cues:[{id:'intro',text:'Hello and welcome to this video.'},{id:'learn',text:'Today we are learning something new.'}]};
+const response=await fetch(serverUrl+'/api/translate',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${clientToken}`},body:JSON.stringify(request),signal:AbortSignal.timeout(110000)});
+const body=await response.json();
+assert.equal(body.ok,true,JSON.stringify(body));assert.equal(body.data.translations.length,2);assert.match(body.data.translations[0].text,/[㐀-鿿]/);
+console.log(JSON.stringify({model:health.data.model,elapsedMs:Date.now()-start,translations:body.data.translations,cached:body.data.cached},null,2));
