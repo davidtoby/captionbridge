@@ -5,10 +5,10 @@ import { fileURLToPath } from 'node:url';
 const root = new URL('../', import.meta.url);
 const out = new URL('dist/extension/', root);
 await mkdir(out, { recursive: true });
-await build({ absWorkingDir: fileURLToPath(root), entryPoints: ['extension/src/background.js', 'extension/src/content.js', 'extension/src/page-bridge.js', 'extension/src/ui.js'], outdir: fileURLToPath(out), bundle: true, format: 'iife', target: 'chrome111', sourcemap: false, legalComments: 'none' });
-for (const file of ['manifest.json','ui.css']) await copyFile(new URL('extension/' + file, root), new URL(file, out));
+await build({ absWorkingDir: fileURLToPath(root), entryPoints: ['extension/src/background.js', 'extension/src/content.js', 'extension/src/page-bridge.js', 'extension/src/page-translator.js', 'extension/src/ui.js'], outdir: fileURLToPath(out), bundle: true, format: 'iife', target: 'chrome111', sourcemap: false, legalComments: 'none' });
+for (const file of ['manifest.json','ui.css','v2.css']) await copyFile(new URL('extension/' + file, root), new URL(file, out));
 for (const file of ['popup.html','options.html']) await copyFile(new URL('extension/ui.html', root), new URL(file, out));
-for (const [locale, name, description] of [['en','CaptionBridge — Bilingual YouTube','Translate existing YouTube captions and download bilingual SRT / WebVTT subtitles with your local model service.'],['zh_CN','CaptionBridge — YouTube 双语字幕','通过本地模型服务翻译 YouTube 已有字幕，并下载双语 SRT / WebVTT 字幕文件。']]) {
+for (const [locale, name, description] of [['en','CaptionBridge — Video & Page Translation','Draggable bilingual YouTube captions, SRT / WebVTT downloads, and on-demand full-page translation through your local model service.'],['zh_CN','CaptionBridge — 视频与网页翻译','可拖动的 YouTube 双语字幕、SRT / WebVTT 下载，以及按需开启的全页面翻译；模型凭证仅保留在本地服务端。']]) {
   const dir = new URL(`_locales/${locale}/`, out); await mkdir(dir, { recursive: true });
   await writeFile(new URL('messages.json',dir), JSON.stringify({ appName:{message:name}, appDescription:{message:description} },null,2));
 }

@@ -6,15 +6,39 @@
 
 ## 项目介绍
 
-CaptionBridge 是一款本地优先的 Chrome 翻译扩展，将 YouTube 已有字幕转换为跟随播放时间轴的双语字幕，并支持导出包含原文、译文和时间戳的 SRT / WebVTT 文件。项目包含 Manifest V3 客户端、Node.js 翻译服务，以及完整的中英文安装与配置界面。模型凭证只保留在服务端，用户可接入自己有权使用的模型服务。
+CaptionBridge 是一款本地优先的 Chrome 翻译扩展：将 YouTube 已有字幕转换为可自由拖动、跟随时间轴的双语字幕，导出 SRT / WebVTT 文件，也能按需翻译整个网页并一键恢复原文。项目包含 Manifest V3 客户端、Node.js 翻译服务，以及完整的中英文安装与配置界面。模型凭证只保留在服务端，用户可接入自己有权使用的模型服务。
 
 ## Project overview
 
-CaptionBridge is a local-first Chrome translation extension that turns existing YouTube captions into time-aligned bilingual subtitles and exports the original text, translations, and timestamps as SRT or WebVTT. It includes a Manifest V3 client, a Node.js translation backend, and a fully localized Chinese/English setup experience. Model credentials stay on the server, and users connect their own authorized model provider.
+CaptionBridge is a local-first Chrome translation extension with draggable, time-aligned bilingual YouTube captions, SRT/WebVTT exports, and on-demand full-page translation with one-click restoration. It includes a Manifest V3 client, a Node.js translation backend, and a fully localized Chinese/English setup experience. Model credentials stay on the server, and users connect their own authorized model provider.
 
 Independent software; not affiliated with Immersive Translate. 本项目不是沉浸式翻译官方产品，也不宣称覆盖其 Pro / Max 的全部功能。
 
+## v2：字幕随你移动，网页随时读懂
+
+### 自由拖动字幕
+
+- 拖动字幕框或顶部的 `⠿` 手柄，上下左右调整；暂停播放时字幕保持可见，也能拖动。
+- 位置以播放器比例保存，刷新页面和下个视频继续使用，适应播放器缩放和全屏。
+- 手柄获得键盘焦点后：方向键微调，Shift + 方向键大步移动，Home 重置。插件「视频字幕」页也有「重置字幕位置」。
+- 仅改变显示位置，不会重新翻译或增加模型调用。
+
+### 全页面翻译
+
+1. 在普通 HTTP/HTTPS 网页上点击 Chrome 工具栏的插件图标。
+2. 切换「网页翻译」，选择目标语言和「只显示译文 / 原文 + 译文」。
+3. 点击「翻译整个页面」才开始读取当前页面；不需要所有网站的常驻读取权限。
+4. 动态加载的新文字自动加入翻译；点击「恢复原文」停止并还原。切换显示方式或界面语言不会重新调用模型。
+
+保留原有 DOM 元素、按钮事件和表单值；跳过密码、表单输入值、编辑区域、代码、隐藏内容以及 `translate="no"`。网页正文中的个人信息仍属于可见正文，点击翻译会将它发送至你配置的模型；敏感页面请勿开启。只翻译主文档的普通可见文本节点，不支持属性文本（如 placeholder/alt）、跨域 iframe、Shadow DOM、PDF、图片 OCR、Canvas、Chrome 内部页或 Chrome Web Store。上限为 5,000 个文本节点 / 500,000 个源文本 UTF-16 字符；超过上限明确显示错误，不冒充整页完成。
+
+从 v1 更新：重新构建或下载 v2，进入 `chrome://extensions` 点击刷新，再刷新目标网页。新增权限只有 `scripting`；通用页面使用用户点击产生的临时 `activeTab` 权限。
+
 ## 本次交付与验证状态
+
+- ✅ v2 实际浏览器验证：鼠标拖动、键盘移动、全屏、暂停保留字幕、位置持久化、真实模型全页面翻译与恢复。
+- ✅ 受控异常测试：表单/编辑区/隐藏文字排除、DOM 事件保留、动态更新、原文恢复、迟到响应取消、模型 HTML 文本不执行、超大页面明确报错。
+- 本地版本标签：`v1.0.0` 保留升级前基线，`v2.0.0` 为本次升级；GitHub 创建/推送需获得当前执行环境授权。
 
 - ✅ 可加载的 Manifest V3 插件、双语字幕叠加、完整双语 SRT / WebVTT 下载。
 - ✅ 本机服务真实调用已配置网关的 `claude-gpt-6-astra`，不是模拟翻译。该名称是当前网关返回的模型标识，不是 Anthropic 官方公开模型 ID。
@@ -105,19 +129,19 @@ scripts/                  构建、打包、启动、浏览器检查
 
 - 支持 YouTube 已有人工字幕和自动生成字幕，解析 JSON3、旧 XML、srv3 XML、WebVTT。
 - 自动选择 YouTube 当前音轨的默认字幕轨道；也可手动切换。源语言跟随实际字幕轨道，目标语言与界面语言分开。
-- 原文和译文随视频时间轴显示，支持跳转、倍速和播放器内全屏。广告、暂停、跳转过程、时间轴空隙以及页面切换时清除过期字幕。
+- 原文和译文随视频时间轴显示，支持跳转、倍速和播放器内全屏。暂停时保留字幕以便阅读和拖动；广告、跳转过程、时间轴空隙以及页面切换时清除过期字幕。
 - 分批顺序翻译，优先当前播放位置；缓存包含模型 / 源语言 / 目标语言 / 整批上下文，服务重启即清空，内存最多保留 500 批、每批有效期 24 小时。
 - 导出必须全部成功；长字幕仅为传输分段，导出仍保留原始时间轴。原生 CC 与插件字幕可能同时出现，可关闭原生 CC 显示以免重复；如果关闭后获取受限，再开启并重试。
-- 本版仅正式覆盖桌面 `www.youtube.com` 播放器。Chrome 手机端通常不支持安装扩展；窄屏布局检查不等于手机版 Chrome 可以安装。
-- 不包含无字幕音频转写、配音、实时直播转写、DRM 绕过、登录绕过、会员破解、其它网站翻译或 Chrome Web Store 上架。
+- 视频字幕仅正式覆盖桌面 `www.youtube.com` 播放器；全页面文本翻译支持普通 HTTP/HTTPS 网页。Chrome 手机端通常不支持安装扩展；窄屏布局检查不等于手机版 Chrome 可以安装。
+- 不包含无字幕音频转写、配音、实时直播转写、DRM 绕过、登录绕过、会员破解、其它网站视频字幕适配或 Chrome Web Store 上架。
 - YouTube 的内部字幕接口可能变化或返回空内容。插件读取页面已有响应并观察原生字幕请求，不伪造客户端身份或访问凭证；当前访问条件拿不到完整字幕时会明确报错。
 
 ## 安全与隐私
 
 - HTTP 服务只监听 `127.0.0.1`，不暴露公网，不是云端托管服务。
 - 本地 API 使用独立随机配对码；检查 Host 与 Origin，防止跨站调用和 DNS rebinding。全局请求限速 120 次/分钟，同时最多 2 个模型请求，正文限制 64 KiB。
-- 插件权限仅为 `storage`、`activeTab`、YouTube 与本机服务地址；没有所有网站、浏览历史、Cookies、调试器或视频下载权限。
-- YouTube 登录 Cookie 仅由该网页向原站请求字幕时使用，不发送给翻译服务。服务收到的只有字幕文本、语言及临时 cue ID，不接收视频标题、URL、账号或浏览历史。
+- 插件权限为 `storage`、`activeTab`、`scripting`、YouTube 与本机服务地址；没有所有网站的常驻权限、浏览历史、Cookies、调试器或视频下载权限。通用网页仅在用户点击后向当前主文档注入翻译脚本。
+- YouTube 登录 Cookie 仅由该网页向原站请求字幕时使用，不发送给翻译服务。服务收到的是待翻译的字幕/网页文本、语言、文本类型及临时 ID，不额外采集视频标题、页面 URL、账号信息或浏览历史；网页正文自身包含的个人信息仍会随正文发送。
 - 模型输出严格校验条数和 ID；字幕只通过 `textContent` 显示，不执行字幕里的 HTML 或脚本。主页面消息桥无模型密钥或扩展权限。
 - 模型数据保留政策由你的模型提供方决定。本地字幕缓存仅在进程内存中，不写字幕到磁盘；主动下载的字幕文件由你保管。
 - 配对页链接将本地配对码放在 URL fragment（不随 HTTP 请求发送），页面载入后移除 fragment，并仅保留在当前标签页 sessionStorage。不要分享该链接。
@@ -137,6 +161,7 @@ npm run package
 ```bash
 node scripts/smoke-live.mjs
 npm run test:browser
+npm run test:page
 node scripts/youtube-check.mjs --translate
 ```
 
@@ -153,6 +178,8 @@ node scripts/youtube-check.mjs --translate
 ```json
 {"sourceLanguage":"en","targetLanguage":"zh-Hans","cues":[{"id":"cue-1","text":"Hello."}]}
 ```
+
+全页面翻译请求使用相同接口，增加 `"kind":"page"` 字段；其模型提示词和缓存与字幕分开。未传 `kind` 时仍兼容 v1 字幕请求。
 
 成功：
 
@@ -176,6 +203,6 @@ node scripts/youtube-check.mjs --translate
 
 **Verification boundary:** the real server/model and real MV3 extension with a controlled, playing video fixture were verified. A live YouTube test discovered 65 tracks, but both native CC and extension caption requests returned empty HTTP 200 bodies in the isolated test browser. Full live-site operation is therefore not claimed as verified. Try normal sign-in, native CC, playback, and retry in your own Chrome; access restrictions are not bypassed.
 
-**Scope:** existing manual/auto-generated captions only, not audio transcription, live transcription, dubbing or paywall/DRM bypass. Only desktop `www.youtube.com` is supported. A responsive UI does not imply Chrome mobile extension support.
+**Scope:** draggable existing manual/auto-generated YouTube captions and on-demand visible main-document page text. No audio transcription, live transcription, dubbing or paywall/DRM bypass. Video captions support desktop `www.youtube.com`; page translation supports regular HTTP/HTTPS sites. A responsive UI does not imply Chrome mobile extension support.
 
 **Privacy:** loopback-only backend, separate pairing token, model keys server-side, no subtitle HTML execution, no video/history uploads. Caption text is sent to your configured model provider. Release archives exclude all credentials and local browser data.

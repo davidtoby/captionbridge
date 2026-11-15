@@ -13,7 +13,7 @@ const extensionZip=new URL('extension.zip',staging);zip(extensionDir,extensionZi
 await cp(extensionZip,new URL('captionbridge-extension.zip',release));
 const sourceDir=new URL('CaptionBridge/',staging);await mkdir(sourceDir);
 // Explicit allowlist: NEVER package .env, .local, caches, screenshots or node_modules.
-const include=['package.json','package-lock.json','README.md','README.en.md','.env.example','.gitignore','server','web','extension','scripts','tests','dist','start.command','open-setup.command','stop.command'];
+const include=['package.json','package-lock.json','README.md','README.en.md','CHANGELOG.md','.env.example','.gitignore','server','web','extension','scripts','tests','dist','start.command','open-setup.command','stop.command'];
 for(const item of include)await cp(new URL(item,root),new URL(item,sourceDir),{recursive:true});
 const fullZip=new URL('full.zip',staging);zip(staging,fullZip,['CaptionBridge']);
 await cp(fullZip,new URL('captionbridge-full.zip',release));

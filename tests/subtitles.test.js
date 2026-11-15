@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { webcrypto } from 'node:crypto';
 import { activeCueIndex, parseCaptions, toSubtitleFile } from '../extension/src/subtitles.js';
+import { attachDraggableOverlay, DEFAULT_POSITION } from '../extension/src/overlay-position.js';
 
 const isCode = (code) => (error) => error.code === code;
 const json = (events) => JSON.stringify({ events });
@@ -244,9 +245,9 @@ function contentHarness({ stored = {}, events = [event(0, 1000, 'Hello')], track
     setTimeout(callback, delay) { const id = setTimeout(() => { timers.delete(id); callback(); }, fastRetry && delay < 2000 ? 0 : delay); timers.add(id); return id; },
     clearTimeout(id) { clearTimeout(id); timers.delete(id); }, setInterval: () => 0,
     requestAnimationFrame: () => 0, cancelAnimationFrame() {},
-    activeCueIndex, parseCaptions, toSubtitleFile,
+    activeCueIndex, parseCaptions, toSubtitleFile, attachDraggableOverlay, DEFAULT_POSITION,
   };
-  const source = readFileSync(new URL('../extension/src/content.js', import.meta.url), 'utf8').replace(/^import[^\n]+\n/, '');
+  const source = readFileSync(new URL('../extension/src/content.js', import.meta.url), 'utf8').replace(/^import[^\n]+\n/gm, '');
   vm.runInNewContext(source, context);
   function message(payload) {
     let result;
@@ -349,7 +350,7 @@ test('missing translation results retry only three times and allow an explicit u
   assert.equal(harness.translations.length, 6);
 });
 
-test('overlay stays inside the fullscreen player and clears on pause, gaps, seeks and disable', async (t) => {
+test('overlay stays visible when paused and clears on gaps, seeks and disable', async (t) => {
   const media = mockMedia();
   const harness = contentHarness({ media, events: [event(1000, 1000, '<script>not HTML</script>'), event(3000, 1000, 'Second cue')] });
   t.after(() => harness.close());
@@ -367,8 +368,10 @@ test('overlay stays inside the fullscreen player and clears on pause, gaps, seek
   assert.equal(harness.translations.length, calls);
   media.video.paused = true;
   media.video.emit('pause');
-  assert.equal(host.hidden, true);
-  assert.equal(original.textContent, '');
+  assert.equal(host.hidden, false);
+  assert.equal(original.textContent, '<script>not HTML</script>');
+  harness.change({ subtitlePosition: { newValue: { x: 0.4, y: 0.3 } } });
+  assert.equal(harness.translations.length, calls, 'Moving captions does not retranslate');
   media.video.paused = false;
   media.video.emit('play');
   assert.equal(host.hidden, false);
@@ -435,7 +438,7 @@ function bridgeHarness(baseUrl = 'https://www.youtube.com/api/timedtext?v=video1
     setTimeout(callback, delay) { const id = setTimeout(() => { timers.delete(id); callback(); }, delay); timers.add(id); return id; },
     clearTimeout(id) { clearTimeout(id); timers.delete(id); },
   };
-  vm.runInNewContext(readFileSync(new URL('../extension/src/page-bridge.js', import.meta.url), 'utf8').replace(/^import[^\n]+\n/, ''), context);
+  vm.runInNewContext(readFileSync(new URL('../extension/src/page-bridge.js', import.meta.url), 'utf8').replace(/^import[^\n]+\n/gm, ''), context);
   return {
     calls, responses, location, playerResponse,
     request(fields = {}) { listeners.get('message')({ source: window, origin: location.origin, data: {

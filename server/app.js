@@ -2,6 +2,7 @@ import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { AppError, modelError } from './translator.js';
+import packageInfo from '../package.json' with { type: 'json' };
 
 const PUBLIC_FILES = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
@@ -47,7 +48,7 @@ export function createApp({ translator, clientToken, model, webDir, zipPath, por
       }
       const url = new URL(req.url, `http://127.0.0.1:${actualPort}`);
       if (req.method === 'GET' && url.pathname === '/api/health') {
-        json(200, { ok: true, data: { service: 'CaptionBridge', version: '1.0.0', configured: !!translator.provider, model } }); return;
+        json(200, { ok: true, data: { service: 'CaptionBridge', version: packageInfo.version, configured: !!translator.provider, model } }); return;
       }
       if (req.method === 'GET' && PUBLIC_FILES.has(url.pathname)) {
         const [file, type] = PUBLIC_FILES.get(url.pathname);

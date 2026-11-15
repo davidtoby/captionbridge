@@ -1,17 +1,18 @@
 import { activeCueIndex, parseCaptions, toSubtitleFile } from './subtitles.js';
+import { attachDraggableOverlay, DEFAULT_POSITION } from './overlay-position.js';
 
 const DEFAULTS = {
   enabled: true, targetLanguage: 'zh-Hans', sourceLanguage: 'auto', locale: 'zh-CN',
-  serverUrl: 'http://127.0.0.1:8787', clientToken: '',
+  serverUrl: 'http://127.0.0.1:8787', clientToken: '', subtitlePosition: DEFAULT_POSITION,
 };
 const LABELS = {
   en: {
     captions: 'Original and translated captions', original: 'Original caption', translated: 'Translated caption',
-    translating: 'Translating', unavailable: 'Translation unavailable',
+    translating: 'Translating', unavailable: 'Translation unavailable', drag: 'Drag captions. Arrow keys move; Home resets position.',
   },
   zh: {
     captions: '原文与翻译字幕', original: '原文字幕', translated: '翻译字幕',
-    translating: '正在翻译', unavailable: '翻译暂不可用',
+    translating: '正在翻译', unavailable: '翻译暂不可用', drag: '拖动字幕；方向键移动，Home 键重置位置。',
   },
 };
 const BATCH_SIZE = 20;
@@ -30,6 +31,8 @@ let host = null;
 let originalLine;
 let translatedLine;
 let progressLine;
+let dragHandle;
+let dragController;
 let frame = 0;
 let lastFrame = 0;
 let rendered = '';
@@ -349,33 +352,47 @@ function createOverlay() {
     const shadow = host.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     style.textContent = `
-      :host { position:absolute; bottom:12%; inset-inline:4%; z-index:2147480000;
+      :host { position:absolute; left:50%; top:84%; transform:translate(-50%,-50%); width:max-content; max-width:92%; z-index:2147480000;
         display:flex; justify-content:center; pointer-events:none; color:white;
         font:500 clamp(14px, 1.7vw, 25px)/1.4 system-ui, sans-serif; text-align:center; }
       :host([hidden]) { display:none !important; }
       .box { max-width:100%; max-height:35vh; overflow:hidden; box-sizing:border-box;
         padding:8px 14px; border-radius:7px; background:rgba(10,15,24,.86);
-        text-shadow:0 1px 2px #000; overflow-wrap:anywhere; white-space:pre-line; }
+        text-shadow:0 1px 2px #000; overflow-wrap:anywhere; white-space:pre-line;
+        pointer-events:auto; cursor:grab; touch-action:none; user-select:none; }
+      .box.dragging { cursor:grabbing; outline:2px solid #b7d4b9; }
+      .drag-handle { display:block; margin:0 auto 2px; padding:0 16px; border:0; border-radius:4px;
+        background:transparent; color:#b9c8c0; font:12px/1.2 system-ui; cursor:grab; touch-action:none; }
+      .drag-handle:focus-visible { outline:2px solid #c5e0aa; outline-offset:2px; }
       .original { font-size:.82em; color:#e0e5ed; }
       .translated { color:#fff; }
       .progress { font-size:12px; color:#c8d9f6; margin-top:3px; }
       [hidden] { display:none !important; }
-      @media (max-width:480px) { .box { padding:6px 9px; } :host { inset-inline:3%; font-size:15px; } }
+      @media (max-width:480px) { .box { padding:6px 9px; } :host { max-width:94%; font-size:15px; } }
     `;
     const box = document.createElement('div');
     box.className = 'box';
     box.setAttribute('role', 'region');
     box.setAttribute('aria-live', 'off');
+    dragHandle = document.createElement('button');
+    dragHandle.className = 'drag-handle';
+    dragHandle.type = 'button';
+    dragHandle.textContent = '⠿';
     originalLine = document.createElement('div');
     originalLine.className = 'original';
     translatedLine = document.createElement('div');
     translatedLine.className = 'translated';
     progressLine = document.createElement('div');
     progressLine.className = 'progress';
-    box.append(originalLine, translatedLine, progressLine);
+    box.append(dragHandle, originalLine, translatedLine, progressLine);
     shadow.append(style, box);
   }
   if (host.parentElement !== player) player.append(host);
+  if (!dragController) dragController = attachDraggableOverlay({
+    host, handle: dragHandle, box: host.shadowRoot.querySelector('.box'), player,
+    getPosition: () => settings.subtitlePosition,
+    onSave: position => { settings.subtitlePosition = position; void chrome.storage.local.set({ subtitlePosition: position }).catch(() => {}); },
+  });
   updateLabels();
 }
 
@@ -383,6 +400,8 @@ function updateLabels() {
   if (!host) return;
   const text = labels();
   host.lang = String(settings.locale || 'en');
+  dragHandle.setAttribute('aria-label', text.drag);
+  dragHandle.title = text.drag;
   host.shadowRoot.querySelector('.box').setAttribute('aria-label', text.captions);
   originalLine.setAttribute('aria-label', text.original);
   translatedLine.setAttribute('aria-label', text.translated);
@@ -402,7 +421,7 @@ function clearOverlay() {
 
 function renderOverlay() {
   if (!settings.enabled || navigating || currentVideoId() !== status.videoId || !video
-    || video.paused || video.ended || video.seeking || video.readyState < 2
+    || video.ended || video.seeking || video.readyState < 2
     || player?.classList.contains('ad-showing') || player?.classList.contains('ad-interrupting')) {
     clearOverlay();
     return;
@@ -430,7 +449,8 @@ function renderOverlay() {
 
 function animationTick(now) {
   frame = 0;
-  if (!settings.enabled || !cues.length || !video || video.paused || video.ended) { clearOverlay(); return; }
+  if (!settings.enabled || !cues.length || !video || video.ended) { clearOverlay(); return; }
+  if (video.paused) { renderOverlay(); return; }
   if (now - lastFrame >= 80) {
     lastFrame = now;
     renderOverlay();
@@ -439,7 +459,7 @@ function animationTick(now) {
 }
 
 function onVideoEvent(event) {
-  if (['pause', 'ended', 'emptied', 'seeking'].includes(event.type)) clearOverlay();
+  if (['ended', 'emptied', 'seeking'].includes(event.type)) clearOverlay();
   else renderOverlay();
   if (settings.enabled && cues.length && video && !video.paused && !video.ended && !frame) frame = requestAnimationFrame(animationTick);
   if (video?.paused || video?.ended) { cancelAnimationFrame(frame); frame = 0; }
@@ -450,6 +470,7 @@ function bindVideo() {
   const nextPlayer = document.getElementById('movie_player');
   const nextVideo = nextPlayer?.querySelector('video.html5-main-video, video') || null;
   if (nextPlayer !== player) {
+    dragController?.destroy(); dragController = null;
     clearOverlay();
     host?.remove();
     player = nextPlayer;
@@ -548,11 +569,12 @@ chrome.storage.onChanged.addListener((changes, area) => {
     if (!initialized) earlySettings[key] = settings[key];
   }
   if (!initialized) return;
-  if (keys.some((key) => key !== 'locale')) restart({ resetTrack: keys.includes('sourceLanguage') });
+  if (keys.some((key) => !['locale', 'subtitlePosition'].includes(key))) restart({ resetTrack: keys.includes('sourceLanguage') });
   else {
     // Locale is purely presentational: never discard timings, progress or a
     // pending translation when the user switches the app-wide language.
     rendered = '';
+    dragController?.update();
     updateLabels();
     renderOverlay();
   }

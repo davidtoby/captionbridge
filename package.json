@@ -1,15 +1,16 @@
 {
   "name": "captionbridge",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Local-first YouTube bilingual subtitles Chrome extension and translation service",
+  "description": "Local-first Chrome translation with draggable bilingual video captions and full-page translation",
   "engines": { "node": ">=22.9" },
   "scripts": {
     "build": "node scripts/build.mjs",
     "start": "node --env-file-if-exists=.env server/index.js",
     "test": "node --test tests/*.test.js",
     "test:browser": "node scripts/browser-test.mjs",
+    "test:page": "node scripts/page-browser-test.mjs",
     "check": "node scripts/check.mjs",
     "package": "node scripts/package.mjs"
   },

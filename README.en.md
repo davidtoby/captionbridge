@@ -6,14 +6,18 @@
 
 ## What is CaptionBridge?
 
-CaptionBridge is a local-first Chrome translation extension for understanding videos without losing the original language. It reads existing YouTube captions, displays time-aligned original text and translations, and exports complete bilingual SRT or WebVTT subtitle files.
+CaptionBridge is a local-first Chrome translation extension for understanding videos and web pages without losing the original context. It displays draggable, time-aligned bilingual YouTube captions, exports complete SRT/WebVTT subtitle files, and translates entire web pages on demand with one-click restoration.
 
 The project ships a **Manifest V3 extension**, a **Node.js translation server**, and a **Chinese/English setup interface**. Credentials stay on the server, not in the extension. Connect a model provider you are authorized to use; no free, embedded, or transferable model token is included.
 
 This is independent software, not an Immersive Translate product or a clone of its entire paid feature set.
 
-## Version 1 features
+## Features (v2)
 
+- Drag captions vertically or horizontally, including while paused; the position is remembered relative to the player and adapts to fullscreen and resizing.
+- Keyboard-accessible caption handle: arrow keys move, Shift + arrows makes larger adjustments, Home resets. Moving never retriggers translation.
+- Translate visible page text on demand, choose translation-only or bilingual mode, and restore originals without replacing page element identities or form values.
+- Dynamically added text is translated while page translation is active; restoring originals cancels future work and ignores late results.
 - Automatically translates existing manual and auto-generated YouTube captions.
 - Shows bilingual captions synchronized with playback, seeking, and playback rate.
 - Exports original text + translation + precise timestamps as SRT or WebVTT.
@@ -21,6 +25,16 @@ This is independent software, not an Immersive Translate product or a clone of i
 - Chinese/English interface switch persists the choice without resetting translation progress.
 - Localhost-only backend, independent pairing token, bounded requests, and in-memory translation cache.
 - Model authentication stays on the server. No video, browsing history, or YouTube cookie uploads to the translation service.
+
+## Full-page translation
+
+Click the extension's **toolbar icon on the target HTTP/HTTPS page**, choose **Web pages**, select your target language and display mode, then click **Translate entire page**. No page text is collected until this action. **Restore original** stops processing and restores exact originals; newer changes made by the page itself are preserved. Switching display mode or interface language reuses translations.
+
+The extension adds `scripting`, not permanent access to all sites. General page injection uses temporary `activeTab` access granted by clicking the toolbar icon. Chrome internal pages and the Web Store block injection. Form values/passwords, editable areas, code, hidden content, and `translate="no"` are skipped. Visible personal information in ordinary prose is still sent to your configured model when you activate translation; do not enable it on sensitive pages.
+
+Supported content is ordinary visible main-document light-DOM text. Attribute values (such as placeholders/alt text), frames, Shadow DOM, images/OCR, PDF, and canvas are not translated. Caps are 5,000 text nodes / 500,000 source UTF-16 characters. Oversized pages report an error instead of claiming complete translation. Dynamic content processing stops when you restore originals; accepted model requests may still be billed.
+
+For v1 upgrades, load/build v2, reload the extension in `chrome://extensions`, and refresh the target page. The subtitle interface includes **Reset caption position**.
 
 ## Quick start
 
@@ -87,11 +101,15 @@ Generated archives exclude `.env`, `.local`, browser profiles, logs, screenshots
 
 ## Validation and known limitations
 
+Local version tags preserve the v1 baseline (`v1.0.0`) and this upgrade (`v2.0.0`); GitHub repository creation/push is pending execution-environment authorization.
+
+V2 browser tests verified mouse dragging, keyboard movement, fullscreen bounds, pause visibility, and real-model page translation/restoration. Deterministic adverse-provider tests separately cover private-field exclusions, retained handlers, modes, dynamic text, cancellation, literal markup, and explicit size caps.
+
 The API and actual model were tested. A real Chromium MV3 extension with a controlled playing-video/caption fixture verified the complete bridge → server → model → overlay → bilingual download path, along with desktop/mobile-width Chinese/English layouts.
 
 **Live YouTube was not fully verified:** the isolated browser discovered 65 tracks on the test video, but both native CC and extension caption requests returned empty HTTP 200 bodies. This is not represented as a passing live-site test. In your normal browser, enable CC, play briefly, then retry. Sign in normally if required by the video. Access restrictions are not bypassed.
 
-Supported scope is desktop `www.youtube.com` with readable existing captions. There is no audio transcription, live transcription, dubbing, DRM/paywall bypass, or Chrome Web Store publishing. Responsive layouts do not imply Chrome mobile can install extensions. YouTube's internal caption behavior may change.
+Video captions support desktop `www.youtube.com` with readable existing tracks; page translation supports ordinary HTTP/HTTPS main documents. There is no audio transcription, live transcription, dubbing, DRM/paywall bypass, or Chrome Web Store publishing. Responsive layouts do not imply Chrome mobile can install extensions. YouTube's internal caption behavior may change.
 
 ## Security and privacy
 
@@ -99,7 +117,7 @@ Supported scope is desktop `www.youtube.com` with readable existing captions. Th
 - Request size, batch size, concurrency, and rate are bounded.
 - Subtitle and model output use `textContent`, never executable HTML.
 - Page-world code has no extension APIs or model credentials.
-- Captions are sent to your configured model provider; its data-retention terms apply.
+- Captions or explicitly selected page text are sent to your configured model provider; its data-retention terms apply. No browsing history or cookies are collected; visible page prose can itself contain personal information.
 - Translations are cached only in memory, bounded to 500 batches and 24 hours; restart clears them.
 - Never share your pairing URL or model credentials.
 
@@ -117,6 +135,7 @@ With a configured running server, the following checks invoke the actual model a
 ```bash
 node scripts/smoke-live.mjs
 npm run test:browser
+npm run test:page
 node scripts/youtube-check.mjs --translate
 ```
 
